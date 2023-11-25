@@ -1,15 +1,24 @@
+#include <Adafruit_NeoPixel.h>
 
-const int MOTOR_OUTPUT_PIN = 21;
+
+
+#define LED_COUNT 1
+#define LED_PIN 21
+
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
+
 
 void setup() {
-  // put your setup code here, to run once:
-  pinMode(MOTOR_OUTPUT_PIN, OUTPUT);
+  strip.begin();
+  strip.show(); // Initialize all pixels to 'off'
+  strip.setBrightness(64);  // range: 0 to 255
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  digitalWrite(MOTOR_OUTPUT_PIN, HIGH);   // turn LED on (3.3V)
-  delay(2000);                          // delay is in milliseconds; so wait one second
-  digitalWrite(MOTOR_OUTPUT_PIN, LOW);    // turn LED off (0V)
-  delay(2000);                          // wait for a second
+  strip.setPixelColor(0, 255, 0, 0);
+  strip.show();
+  delay(3000);
+  strip.setPixelColor(0, 0, 0, 255);
+  strip.show();
+  delay(3000);
 }
