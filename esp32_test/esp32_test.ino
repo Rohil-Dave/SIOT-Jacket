@@ -1,3 +1,5 @@
+#include <Adafruit_MMA8451.h>
+
 #include <Adafruit_NeoPixel.h>
 
 
