@@ -3,7 +3,7 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MMA8451.h>
 
-#define LED_COUNT 1
+#define LED_COUNT 60
 #define LED_PIN 21
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
@@ -57,12 +57,16 @@ void loop() {
   // Check for a change in acceleration;
   if (abs(currentXacc - prevXacc) > threshold) {
     // Turn on the Neopixel
-    strip.setPixelColor(0, 255, 0, 0);
+    for (int i = 0; i < LED_COUNT; i++) {
+    strip.setPixelColor(i, 200, 200, 200); // White-ish color
+    }
     strip.show();
     delay(3000);
   } else {
     //Turn off the NeoPixel
-    strip.setPixelColor(0, 0, 0, 0);
+    for (int i = 0; i < LED_COUNT; i++) {
+    strip.setPixelColor(i, 0, 0, 0); // Off
+    }
     strip.show();
   }
   
