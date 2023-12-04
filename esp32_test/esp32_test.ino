@@ -4,15 +4,17 @@
 #include <Adafruit_MMA8451.h>
 #include "Adafruit_TSL2591.h"
 
-#define LED_COUNT 60
-#define RIGHT_LED_PIN 21
-#define LEFT_LED_PIN 17
+#define LED_COUNT 10
+#define RIGHT_LED_PIN 17
+#define LEFT_LED_PIN 21
+#define FRONT_LED_PIN 16
 
 #define RIGHT_VIBE_PIN 25
 #define LEFT_VIBE_PIN 26
 
 Adafruit_NeoPixel rightSleeveStrip(LED_COUNT, RIGHT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel leftSleeveStrip(LED_COUNT, LEFT_LED_PIN, NEO_GRB + NEO_KHZ800);
+Adafruit_NeoPixel frontStrip(1, FRONT_LED_PIN, NEO_GRB + NEO_KHZ800);
 
 Adafruit_MMA8451 rightSleeveMMA = Adafruit_MMA8451();
 Adafruit_MMA8451 leftSleeveMMA = Adafruit_MMA8451();
@@ -26,24 +28,24 @@ float threshold = 4.0; // Variable to check against for change in X acceleration
 
 void setup(void) {
   Serial.begin(9600);
-//  Serial.println("Adafruit MMA8451 test!");
-//  
-//  // Initialize Right Sleeve MMA8451
-//  if (! rightSleeveMMA.begin(0x1D)) { // Unique I2C address for the right sleeve accelerometer
-//    Serial.println("Couldn't start right sleeve MMA8451");
-//    while (1);
-//  }
-//  Serial.println("Right sleeve MMA8451 found!");
-//
-//  // Initialize Left Sleeve MMA8451
-//  if (! leftSleeveMMA.begin(0x1C)) { // Unique I2C address for the left sleeve accelerometer, 0x1C requires A pin to GND
-//    Serial.println("Couldn't start left sleeve MMA8451");
-//    while (1);
-//  }
-//  Serial.println("Left sleeve MMA8451 found!");
-//  
-//  rightSleeveMMA.setRange(MMA8451_RANGE_2_G);
-//  leftSleeveMMA.setRange(MMA8451_RANGE_2_G);
+  Serial.println("Adafruit MMA8451 test!");
+  
+  // Initialize Right Sleeve MMA8451
+  if (! rightSleeveMMA.begin(0x1D)) { // Unique I2C address for the right sleeve accelerometer
+    Serial.println("Couldn't start right sleeve MMA8451");
+    while (1);
+  }
+  Serial.println("Right sleeve MMA8451 found!");
+
+  // Initialize Left Sleeve MMA8451
+  if (! leftSleeveMMA.begin(0x1C)) { // Unique I2C address for the left sleeve accelerometer, 0x1C requires A pin to GND
+    Serial.println("Couldn't start left sleeve MMA8451");
+    while (1);
+  }
+  Serial.println("Left sleeve MMA8451 found!");
+  
+  rightSleeveMMA.setRange(MMA8451_RANGE_2_G);
+  leftSleeveMMA.setRange(MMA8451_RANGE_2_G);
 
   pinMode(RIGHT_VIBE_PIN, OUTPUT);
   pinMode(LEFT_VIBE_PIN, OUTPUT);
@@ -69,10 +71,10 @@ void setup(void) {
   }
     
   /* Display some basic information on this sensor */
-  displaySensorDetails();
+  // displaySensorDetails();
   
   /* Configure the sensor */
-  configureSensor();
+  // configureSensor();
 }
 
 /**************************************************************************/
@@ -205,26 +207,26 @@ void glowOnDark(void) {
   full = lum & 0xFFFF;
   if (full - ir < 1000) {
     for (int i = 0; i < LED_COUNT; i++) {
-      leftSleeveStrip.setPixelColor(i, 225, 0, 0); // Red
+      frontStrip.setPixelColor(i, 225, 0, 0); // Red
     }
-    leftSleeveStrip.show();  // Turn on LEDs 
+    frontStrip.show();  // Turn on LEDs 
   }
     else {
     for (int i = 0; i < LED_COUNT; i++) {
-      leftSleeveStrip.setPixelColor(i, 0, 0, 0); // Off
+      frontStrip.setPixelColor(i, 0, 0, 0); // Off
     }
-    leftSleeveStrip.show();  // Turn on LEDs 
+    frontStrip.show();  // Turn on LEDs 
   }
 }
 
 void loop() {
   // Process right sleeve and print its data
-  // processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve", RIGHT_VIBE_PIN);
+  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve", RIGHT_VIBE_PIN);
 
   // Process left sleeve and print its data
-  // processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve", LEFT_VIBE_PIN);
+  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve", LEFT_VIBE_PIN);
 
-  advancedRead();
+  // advancedRead();
   glowOnDark();
   delay(1000);
 }
