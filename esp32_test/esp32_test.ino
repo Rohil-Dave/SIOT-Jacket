@@ -1,26 +1,29 @@
+// Include all libraries needed
 #include <Adafruit_NeoPixel.h>
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MMA8451.h>
 #include "Adafruit_TSL2591.h"
 
+// Define pins for each strip of 10 neopixels
 #define LED_COUNT 10
-#define RIGHT_LED_PIN 8
-#define LEFT_LED_PIN 7
-#define FRONT_LED_PIN 21
-#define BACK_LED_PIN 19
+#define RIGHT_LED_PIN 8  // TX
+#define LEFT_LED_PIN 7   // RX
+#define FRONT_LED_PIN 21 // MI
+#define BACK_LED_PIN 19  // MO
+// Define pins for each haptic vibe motor
+#define RIGHT_VIBE_PIN 15 // 15
+#define LEFT_VIBE_PIN 27  // 27
 
-#define RIGHT_VIBE_PIN 15
-#define LEFT_VIBE_PIN 27
-
+// Initialize all LED strips
 Adafruit_NeoPixel rightSleeveStrip(LED_COUNT, RIGHT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel leftSleeveStrip(LED_COUNT, LEFT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel frontStrip(LED_COUNT, FRONT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel backStrip(LED_COUNT, BACK_LED_PIN, NEO_GRB + NEO_KHZ800);
-
+// Initialize both accelerometer
 Adafruit_MMA8451 rightSleeveMMA = Adafruit_MMA8451();
 Adafruit_MMA8451 leftSleeveMMA = Adafruit_MMA8451();
-
+// Initialize light sensor
 Adafruit_TSL2591 TSL = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 
 float prevRightXacc = 0; // Variable to store previous X acceleration of MMA on right sleeve
@@ -50,8 +53,7 @@ void setup(void) {
   rightSleeveMMA.setRange(MMA8451_RANGE_2_G);
   leftSleeveMMA.setRange(MMA8451_RANGE_2_G);
   
-  // Initialize all NeoPixel LED strips and reduce brightness
-  rightSleeveStrip.begin();
+  rightSleeveStrip.begin();  // Initialize all NeoPixel LED strips and reduce brightness
   rightSleeveStrip.setBrightness(64);
   leftSleeveStrip.begin();
   leftSleeveStrip.setBrightness(64);
@@ -61,12 +63,12 @@ void setup(void) {
   backStrip.setBrightness(64);  // range: 0 to 255
   
   for (int i = 0; i < LED_COUNT; i++) {
-      rightSleeveStrip.setPixelColor(i, 0, 0, 0); // No color
+      rightSleeveStrip.setPixelColor(i, 0, 0, 0);  // No color
       leftSleeveStrip.setPixelColor(i, 0, 0, 0);
       frontStrip.setPixelColor(i, 0, 0, 0);
       backStrip.setPixelColor(i, 0, 0, 0);
     }
-  rightSleeveStrip.show(); // Initialize all pixels to 'off'
+  rightSleeveStrip.show();  // Initialize all pixels to 'off'
   leftSleeveStrip.show();
   frontStrip.show();
   backStrip.show();
@@ -89,6 +91,10 @@ void setup(void) {
   
   /* Configure the sensor */
   // configureSensor();
+  
+  // Initialize each vibe motor
+  pinMode(RIGHT_VIBE_PIN, OUTPUT);
+  pinMode(LEFT_VIBE_PIN, OUTPUT);
 }
 
 /**************************************************************************/
@@ -176,7 +182,7 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
 
   if (abs(currentXacc - prevXacc) > threshold) {
     for (int i = 0; i < LED_COUNT; i++) {
-      strip.setPixelColor(i, 225, 0, 0); // Red color
+      strip.setPixelColor(i, 200, 200, 200); // White-ish color
     }
     strip.show();  // Turn on LEDs
     delay(3000);
@@ -219,11 +225,13 @@ void glowOnDark(void) {
   full = lum & 0xFFFF;
   if (full - ir < 1000) {
     for (int i = 0; i < LED_COUNT; i++) {
-      frontStrip.setPixelColor(i, 225, 0, 0); // Red
-      backStrip.setPixelColor(i, 225, 0, 0);
+      frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
+      backStrip.setPixelColor(i, 200, 200, 200);
     }
     frontStrip.show();
-    backStrip.show();// Turn on LEDs 
+    backStrip.show();// Turn on LEDs
+    digitalWrite(RIGHT_VIBE_PIN, HIGH); // Turn on vibe motors
+    digitalWrite(LEFT_VIBE_PIN, HIGH); 
   }
     else {
     for (int i = 0; i < LED_COUNT; i++) {
@@ -232,6 +240,8 @@ void glowOnDark(void) {
     }
     frontStrip.show();  // Turn off LEDs
     backStrip.show();
+    digitalWrite(RIGHT_VIBE_PIN, LOW); // Turn off vibe motors
+    digitalWrite(LEFT_VIBE_PIN, LOW); 
   }
 }
 
