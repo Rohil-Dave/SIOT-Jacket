@@ -9,7 +9,7 @@
 */
 #include <WiFi.h>
 
-const char* ssid     = "Rohil's iPhone";
+const char* ssid     = "";
 const char* password = "rollzroyce";
 
 int btnGPIO = 0;
