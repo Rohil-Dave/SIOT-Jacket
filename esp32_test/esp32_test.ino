@@ -31,6 +31,7 @@ float prevLeftXacc = 0; // Variable to store previous X acceleration of MMA on l
 float threshold = 4.0; // Variable to check against for change in X acceleration to trigger light change
 
 
+
 void setup(void) {
   Serial.begin(9600);
   Serial.println("Adafruit MMA8451 test!");
@@ -97,6 +98,101 @@ void setup(void) {
   pinMode(LEFT_VIBE_PIN, OUTPUT);
 }
 
+
+// Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
+void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, const char* sleeveName) {
+  mma.read();
+  sensors_event_t event; 
+  mma.getEvent(&event);
+
+  // Printing the accelerometer data for the specific sleeve
+  Serial.print(sleeveName);
+  Serial.print(" X:\t"); Serial.print(event.acceleration.x); Serial.print("\t");
+  Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
+  Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
+
+  float currentXacc = event.acceleration.x;
+
+  if (abs(currentXacc - prevXacc) > threshold) {
+    for (int i = 0; i < LED_COUNT; i++) {
+      strip.setPixelColor(i, 200, 200, 200); // White-ish color
+    }
+    strip.show();  // Turn on LEDs
+    Serial.println("HELLO");
+    delay(3000);
+  } else {
+    for (int i = 0; i < LED_COUNT; i++) {
+      strip.setPixelColor(i, 0, 0, 0); // No color
+    }
+    strip.show(); // Turn off LEDs
+  }
+  
+  prevXacc = currentXacc;
+}
+
+
+// Test if LEDs glow on low light
+void glowOnDark(void) {
+  
+  uint32_t lum = TSL.getFullLuminosity();
+  uint16_t ir, full;
+  ir = lum >> 16;
+  full = lum & 0xFFFF;
+  if (full - ir < 1000) {
+    for (int i = 0; i < LED_COUNT; i++) {
+      frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
+      backStrip.setPixelColor(i, 200, 200, 200);
+    }
+    frontStrip.show();
+    backStrip.show();// Turn on LEDs
+    digitalWrite(RIGHT_VIBE_PIN, HIGH); // Turn on vibe motors
+    digitalWrite(LEFT_VIBE_PIN, HIGH); 
+  }
+    else {
+    for (int i = 0; i < LED_COUNT; i++) {
+      frontStrip.setPixelColor(i, 0, 0, 0); // Off
+      backStrip.setPixelColor(i, 0, 0, 0);
+    }
+    frontStrip.show();  // Turn off LEDs
+    backStrip.show();
+    digitalWrite(RIGHT_VIBE_PIN, LOW); // Turn off vibe motors
+    digitalWrite(LEFT_VIBE_PIN, LOW); 
+  }
+}
+
+void loop() {
+  // Process right sleeve and print its data
+  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve");
+
+  // Process left sleeve and print its data
+  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve");
+
+  // advancedRead();
+  glowOnDark();
+  delay(1000);
+}
+
+/**************************************************************************/
+/*
+    Show how to read IR and Full Spectrum at once and convert to lux
+*/
+/**************************************************************************/
+//void advancedRead(void)
+//{
+//  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
+//  // That way you can do whatever math and comparisons you want!
+//  uint32_t lum = tsl.getFullLuminosity();
+//  uint16_t ir, full;
+//  ir = lum >> 16;
+//  full = lum & 0xFFFF;
+//  Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
+//  Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
+//  Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
+//  Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
+//  Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
+//}
+//
+
 /**************************************************************************/
 /*
     Displays some basic information on this sensor from the unified
@@ -140,7 +236,7 @@ void setup(void) {
 //  // tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
 //  // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
 //
-//  /* Display the gain and integration time for reference sake */  
+//  /* Display the gain and integration time for reference sake */ 
 //  Serial.println(F("------------------------------------"));
 //  Serial.print  (F("Gain:         "));
 //  tsl2591Gain_t gain = tsl.getGain();
@@ -165,94 +261,3 @@ void setup(void) {
 //  Serial.println(F("------------------------------------"));
 //  Serial.println(F(""));
 //}
-
-// Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
-void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, const char* sleeveName) {
-  mma.read();
-  sensors_event_t event; 
-  mma.getEvent(&event);
-
-  // Printing the accelerometer data for the specific sleeve
-  Serial.print(sleeveName);
-  Serial.print(" X:\t"); Serial.print(event.acceleration.x); Serial.print("\t");
-  Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
-  Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
-
-  float currentXacc = event.acceleration.x;
-
-  if (abs(currentXacc - prevXacc) > threshold) {
-    for (int i = 0; i < LED_COUNT; i++) {
-      strip.setPixelColor(i, 200, 200, 200); // White-ish color
-    }
-    strip.show();  // Turn on LEDs
-    delay(3000);
-  } else {
-    for (int i = 0; i < LED_COUNT; i++) {
-      strip.setPixelColor(i, 0, 0, 0); // No color
-    }
-    strip.show(); // Turn off LEDs
-  }
-  
-  prevXacc = currentXacc;
-}
-
-/**************************************************************************/
-/*
-    Show how to read IR and Full Spectrum at once and convert to lux
-*/
-/**************************************************************************/
-//void advancedRead(void)
-//{
-//  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
-//  // That way you can do whatever math and comparisons you want!
-//  uint32_t lum = tsl.getFullLuminosity();
-//  uint16_t ir, full;
-//  ir = lum >> 16;
-//  full = lum & 0xFFFF;
-//  Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
-//  Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
-//  Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
-//  Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
-//  Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
-//}
-//
-//// Test if LEDs glow on low light
-void glowOnDark(void) {
-  
-  uint32_t lum = TSL.getFullLuminosity();
-  uint16_t ir, full;
-  ir = lum >> 16;
-  full = lum & 0xFFFF;
-  if (full - ir < 1000) {
-    for (int i = 0; i < LED_COUNT; i++) {
-      frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
-      backStrip.setPixelColor(i, 200, 200, 200);
-    }
-    frontStrip.show();
-    backStrip.show();// Turn on LEDs
-    digitalWrite(RIGHT_VIBE_PIN, HIGH); // Turn on vibe motors
-    digitalWrite(LEFT_VIBE_PIN, HIGH); 
-  }
-    else {
-    for (int i = 0; i < LED_COUNT; i++) {
-      frontStrip.setPixelColor(i, 0, 0, 0); // Off
-      backStrip.setPixelColor(i, 0, 0, 0);
-    }
-    frontStrip.show();  // Turn off LEDs
-    backStrip.show();
-    digitalWrite(RIGHT_VIBE_PIN, LOW); // Turn off vibe motors
-    digitalWrite(LEFT_VIBE_PIN, LOW); 
-  }
-}
-
-void loop() {
-  // Process right sleeve and print its data
-  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve");
-
-  // Process left sleeve and print its data
-  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve");
-
-  // advancedRead();
-  glowOnDark();
-  delay(1000);
-}
