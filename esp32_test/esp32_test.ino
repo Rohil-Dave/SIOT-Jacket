@@ -26,6 +26,15 @@ Adafruit_MMA8451 leftSleeveMMA = Adafruit_MMA8451();
 // Initialize light sensor
 Adafruit_TSL2591 TSL = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 
+// Add global variables to track the timing for right and left sleeves
+unsigned long rightSleeveTimer = 0;
+unsigned long leftSleeveTimer = 0;
+bool rightSleeveActive = false;
+bool leftSleeveActive = false;
+
+unsigned long lastUpdateTime = 0;
+const long updateInterval = 1000;  // Update interval of 1 second
+
 float prevRightXacc = 0; // Variable to store previous X acceleration of MMA on right sleeve
 float prevLeftXacc = 0; // Variable to store previous X acceleration of MMA on left sleeve
 float threshold = 4.0; // Variable to check against for change in X acceleration to trigger light change
@@ -100,7 +109,7 @@ void setup(void) {
 
 
 // Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
-void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, const char* sleeveName) {
+void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, const char* sleeveName, unsigned long &sleeveTimer, bool &sleeveActive) {
   mma.read();
   sensors_event_t event; 
   mma.getEvent(&event);
@@ -114,17 +123,20 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
   float currentXacc = event.acceleration.x;
 
   if (abs(currentXacc - prevXacc) > threshold) {
-    for (int i = 0; i < LED_COUNT; i++) {
-      strip.setPixelColor(i, 200, 200, 200); // White-ish color
+    if (!sleeveActive) {
+      for (int i = 0; i < LED_COUNT; i++) {
+        strip.setPixelColor(i, 200, 200, 200); // White-ish color
+      }
+      strip.show();  // Turn on LEDs
+      sleeveActive = true;
+      sleeveTimer = millis();
     }
-    strip.show();  // Turn on LEDs
-    Serial.println("HELLO");
-    delay(3000);
-  } else {
+  } else if (millis() - sleeveTimer >= 3000 || !sleeveActive) {
     for (int i = 0; i < LED_COUNT; i++) {
       strip.setPixelColor(i, 0, 0, 0); // No color
     }
     strip.show(); // Turn off LEDs
+    sleeveActive = false;
   }
   
   prevXacc = currentXacc;
@@ -138,7 +150,7 @@ void glowOnDark(void) {
   uint16_t ir, full;
   ir = lum >> 16;
   full = lum & 0xFFFF;
-  if (full - ir < 1000) {
+  if (full - ir < 500) {
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
       backStrip.setPixelColor(i, 200, 200, 200);
@@ -162,14 +174,18 @@ void glowOnDark(void) {
 
 void loop() {
   // Process right sleeve and print its data
-  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve");
+  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
 
   // Process left sleeve and print its data
-  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve");
+  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
 
   // advancedRead();
-  glowOnDark();
-  delay(1000);
+
+  // Perform regular actions every second
+  if (millis() - lastUpdateTime >= updateInterval) {
+    glowOnDark();
+    lastUpdateTime = millis();
+  }
 }
 
 /**************************************************************************/
