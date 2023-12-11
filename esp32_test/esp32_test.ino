@@ -35,10 +35,17 @@ bool leftSleeveActive = false;
 unsigned long lastUpdateTime = 0;
 const long updateInterval = 1000;  // Update interval of 1 second
 
-float prevRightXacc = 0; // Variable to store previous X acceleration of MMA on right sleeve
-float prevLeftXacc = 0; // Variable to store previous X acceleration of MMA on left sleeve
-float threshold = 4.0; // Variable to check against for change in X acceleration to trigger light change
+// Adjust the threshold values for each axis
+float xThreshold = 8.0; // Variable to check against for change in X acceleration to trigger light change
+float yThreshold = 8.0; // Variable to check against for change in Y acceleration to trigger light change
+float zThreshold = 8.0; // Variable to check against for change in Z acceleration to trigger light change
 
+float prevRightXacc = 0; // Variable to store previous X acceleration of MMA on right sleeve
+float prevRightYacc = 0; // Variable to store previous Y acceleration of MMA on right sleeve
+float prevRightZacc = 0; // Variable to store previous Z acceleration of MMA on right sleeve
+float prevLeftXacc = 0; // Variable to store previous X acceleration of MMA on left sleeve
+float prevLeftYacc = 0; // Variable to store previous Y acceleration of MMA on left sleeve
+float prevLeftZacc = 0; // Variable to store previous Z acceleration of MMA on left sleeve
 
 
 void setup(void) {
@@ -109,7 +116,7 @@ void setup(void) {
 
 
 // Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
-void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, const char* sleeveName, unsigned long &sleeveTimer, bool &sleeveActive) {
+void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, float &prevYacc, float &prevZacc, const char* sleeveName, unsigned long &sleeveTimer, bool &sleeveActive) {
   mma.read();
   sensors_event_t event; 
   mma.getEvent(&event);
@@ -120,9 +127,12 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
   Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
   Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
 
-  float currentXacc = event.acceleration.x;
+  // Calculate the change in acceleration for each axis
+  float deltaX = abs(event.acceleration.x - prevXacc);
+  float deltaY = abs(event.acceleration.y - prevYacc);
+  float deltaZ = abs(event.acceleration.z - prevZacc);
 
-  if (abs(currentXacc - prevXacc) > threshold) {
+  if (deltaX > xThreshold && deltaY > yThreshold && deltaZ > zThreshold) {
     if (!sleeveActive) {
       for (int i = 0; i < LED_COUNT; i++) {
         strip.setPixelColor(i, 200, 200, 200); // White-ish color
@@ -139,7 +149,10 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
     sleeveActive = false;
   }
   
-  prevXacc = currentXacc;
+  // Update the previous acceleration values
+  prevXacc = event.acceleration.x;
+  prevYacc = event.acceleration.y;
+  prevZacc = event.acceleration.z;
 }
 
 
@@ -174,10 +187,10 @@ void glowOnDark(void) {
 
 void loop() {
   // Process right sleeve and print its data
-  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
+  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, prevRightYacc, prevRightZacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
 
   // Process left sleeve and print its data
-  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
+  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, prevLeftYacc, prevLeftZacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
 
   // advancedRead();
 
