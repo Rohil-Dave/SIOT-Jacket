@@ -5,10 +5,7 @@
 #include <Adafruit_MMA8451.h>
 #include "Adafruit_TSL2591.h"
 #include <WiFi.h>
-
-// WiFi network details
-const char* ssid     = "2 Childish";
-const char* password = "Gambino3005";
+#include <SPIFFS.h>
 
 // Define pins for each strip of 10 neopixels
 #define LED_COUNT 10
@@ -20,6 +17,13 @@ const char* password = "Gambino3005";
 #define RIGHT_VIBE_PIN 15 // 15
 #define LEFT_VIBE_PIN 27  // 27
 
+#define FILE_PATH "/ride_data.csv"
+File dataFile;
+
+// WiFi network details
+const char* ssid     = "2 Childish";
+const char* password = "Gambino3005";
+
 // Initialize all LED strips
 Adafruit_NeoPixel rightSleeveStrip(LED_COUNT, RIGHT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel leftSleeveStrip(LED_COUNT, LEFT_LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -28,8 +32,6 @@ Adafruit_NeoPixel backStrip(LED_COUNT, BACK_LED_PIN, NEO_GRB + NEO_KHZ800);
 // Initialize both accelerometer
 Adafruit_MMA8451 rightSleeveMMA = Adafruit_MMA8451();
 Adafruit_MMA8451 leftSleeveMMA = Adafruit_MMA8451();
-// Initialize light sensor
-Adafruit_TSL2591 TSL = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 
 // Add global variables to track the timing for right and left sleeves
 unsigned long rightSleeveTimer = 0;
@@ -37,8 +39,6 @@ unsigned long leftSleeveTimer = 0;
 bool rightSleeveActive = false;
 bool leftSleeveActive = false;
 
-unsigned long lastGlowUpdate = 0;
-const long glowUpdateInterval = 2000;  // Update interval of 2 seconds for ambient light
 unsigned long lastTurnUpdate = 0;
 const long turnUpdateInterval = 500;  // Update interval of half second for raise of arm for turn signal
 
@@ -54,18 +54,32 @@ float prevLeftXacc = 0; // Variable to store previous X acceleration of MMA on l
 float prevLeftYacc = 0; // Variable to store previous Y acceleration of MMA on left sleeve
 float prevLeftZacc = 0; // Variable to store previous Z acceleration of MMA on left sleeve
 
+// Initialize light sensor
+Adafruit_TSL2591 TSL = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
+
+unsigned long lastGlowUpdate = 0;
+const long glowUpdateInterval = 2000;  // Update interval of 2 seconds for ambient light
+bool glowActive = false;
+
+unsigned long lastStoreUpdate = 0;
+const long storeInterval = 500; // How often data entry is recorded, upper bounded by turnUpdateInterval
 
 void setup(void) {
   Serial.begin(115200);
-  Serial.println("Adafruit MMA8451 test!");
-  
+  Serial.println("SETUP");
+  dataFile = SPIFFS.open(FILE_PATH, "a"); // Initializes write to file for ride_data.csv
+  if (dataFile) {
+    Serial.println("Printing to file...");
+    dataFile.println("Time elapsed, Glow State, Right Sleeve State, Right X Acc, Right Y Acc, Right Z Acc, Left Sleeve State, Left X Acc, Left Y Acc, Left Z Acc");
+  }
+
+  Serial.println("Starting Adafruit MMA8451 test!");
   // Initialize Right Sleeve MMA8451
   if (! rightSleeveMMA.begin(0x1C)) { // Unique I2C address for the right sleeve accelerometer, 0x1C requires A pin to GND
     Serial.println("Couldn't start right sleeve MMA8451");
     while (1);
   }
   Serial.println("Right sleeve MMA8451 found!");
-
   // Initialize Left Sleeve MMA8451
   if (! leftSleeveMMA.begin(0x1D)) { // Unique I2C address for the left sleeve accelerometer
     Serial.println("Couldn't start left sleeve MMA8451");
@@ -99,10 +113,9 @@ void setup(void) {
   
   // Initialize ambient light sensor
   Serial.println(F("Starting Adafruit TSL2591 Test!"));
-  
   if (TSL.begin()) 
   {
-    Serial.println(F("Found a TSL2591 sensor"));
+    Serial.println(F("TSL2591 found!"));
   } 
   else 
   {
@@ -175,6 +188,22 @@ void setup(void) {
   }
 }
 
+// Function to write states and sensor values to SPIFFS
+void writeToSPIFFS(float currentMillis) {
+  if (dataFile){
+    dataFile.print(currentMillis); dataFile.print(",");
+    dataFile.print(glowActive); dataFile.print(",");
+    dataFile.print(rightSleeveActive); dataFile.print(",");
+    dataFile.print(prevRightXacc); dataFile.print(",");
+    dataFile.print(prevRightYacc); dataFile.print(",");
+    dataFile.print(prevRightZacc); dataFile.print(",");
+    dataFile.print(leftSleeveActive); dataFile.print(",");
+    dataFile.print(prevLeftXacc); dataFile.print(",");
+    dataFile.print(prevLeftYacc); dataFile.print(",");
+    dataFile.println(prevLeftZacc);
+  }
+  
+}
 
 // Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
 void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, float &prevYacc, float &prevZacc, const char* sleeveName, unsigned long &sleeveTimer, bool &sleeveActive) {
@@ -183,10 +212,10 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
   mma.getEvent(&event);
 
   // Printing the accelerometer data for the specific sleeve
-  Serial.print(sleeveName);
-  Serial.print(" X:\t"); Serial.print(event.acceleration.x); Serial.print("\t");
-  Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
-  Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
+  // Serial.print(sleeveName);
+  // Serial.print(" X:\t"); Serial.print(event.acceleration.x); Serial.print("\t");
+  // Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
+  // Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
 
   // Record current accelerations in all directions
   float currentXacc = event.acceleration.x;
@@ -234,6 +263,7 @@ void glowOnDark(void) {
   full = lum & 0xFFFF;
 
   if (full - ir < 300) {
+    glowActive = true;
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
       backStrip.setPixelColor(i, 200, 200, 200);
@@ -244,6 +274,7 @@ void glowOnDark(void) {
     //digitalWrite(LEFT_VIBE_PIN, HIGH); 
   }
   else {
+    glowActive = false;
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 0, 0, 0); // Off
       backStrip.setPixelColor(i, 0, 0, 0);
@@ -256,7 +287,12 @@ void glowOnDark(void) {
 }
 
 void loop() {
-  
+  // Print the data
+  float currentMillis = millis();
+  if (currentMillis - lastStoreUpdate >= storeInterval) {
+    writeToSPIFFS(currentMillis);
+    lastStoreUpdate = currentMillis;
+  }
   // Ambient Light Activated LEDs
   if (millis() - lastGlowUpdate >= glowUpdateInterval) {
     glowOnDark();
@@ -264,9 +300,7 @@ void loop() {
   }
   // Turn Signal Activated LEDs
   if (millis() - lastTurnUpdate >= turnUpdateInterval) {
-    // Process right sleeve and print its data
     processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, prevRightYacc, prevRightZacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
-    // Process left sleeve and print its data
     processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, prevLeftYacc, prevLeftZacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
     lastTurnUpdate = millis();
   }
