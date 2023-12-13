@@ -4,6 +4,11 @@
 #include <Adafruit_Sensor.h>
 #include <Adafruit_MMA8451.h>
 #include "Adafruit_TSL2591.h"
+#include <WiFi.h>
+
+// WiFi network details
+const char* ssid     = "2 Childish";
+const char* password = "Gambino3005";
 
 // Define pins for each strip of 10 neopixels
 #define LED_COUNT 10
@@ -32,13 +37,15 @@ unsigned long leftSleeveTimer = 0;
 bool rightSleeveActive = false;
 bool leftSleeveActive = false;
 
-unsigned long lastUpdateTime = 0;
-const long updateInterval = 1000;  // Update interval of 1 second
+unsigned long lastGlowUpdate = 0;
+const long glowUpdateInterval = 2000;  // Update interval of 2 seconds for ambient light
+unsigned long lastTurnUpdate = 0;
+const long turnUpdateInterval = 500;  // Update interval of half second for raise of arm for turn signal
 
 // Adjust the threshold values for each axis
-float xThreshold = 8.0; // Variable to check against for change in X acceleration to trigger light change
-float yThreshold = 8.0; // Variable to check against for change in Y acceleration to trigger light change
-float zThreshold = 8.0; // Variable to check against for change in Z acceleration to trigger light change
+float xThreshold = 4.0; // Variable to check against for change in X acceleration to trigger light change
+float yThreshold = 4.0; // Variable to check against for change in Y acceleration to trigger light change
+float zThreshold = 4.0; // Variable to check against for change in Z acceleration to trigger light change
 
 float prevRightXacc = 0; // Variable to store previous X acceleration of MMA on right sleeve
 float prevRightYacc = 0; // Variable to store previous Y acceleration of MMA on right sleeve
@@ -49,7 +56,7 @@ float prevLeftZacc = 0; // Variable to store previous Z acceleration of MMA on l
 
 
 void setup(void) {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("Adafruit MMA8451 test!");
   
   // Initialize Right Sleeve MMA8451
@@ -102,16 +109,70 @@ void setup(void) {
     Serial.println(F("No sensor found ... check your wiring?"));
     while (1);
   }
-    
-  /* Display some basic information on this sensor */
-  // displaySensorDetails();
-  
-  /* Configure the sensor */
-  // configureSensor();
+
+  // Configure light sensor
+  TSL.setGain(TSL2591_GAIN_MED);
+  TSL.setTiming(TSL2591_INTEGRATIONTIME_300MS);
   
   // Initialize each vibe motor
   pinMode(RIGHT_VIBE_PIN, OUTPUT);
   pinMode(LEFT_VIBE_PIN, OUTPUT);
+
+  Serial.println();
+  Serial.print("[WiFi] Connecting to ");
+  Serial.println(ssid);
+
+  WiFi.begin(ssid, password);
+// Auto reconnect is set true as default
+// To set auto connect off, use the following function
+//    WiFi.setAutoReconnect(false);
+
+    // Will try for about 10 seconds (20x 500ms)
+  int tryDelay = 500;
+  int numberOfTries = 20;
+
+    // Wait for the WiFi event
+  while (true) {
+        
+    switch(WiFi.status()) {
+      case WL_NO_SSID_AVAIL:
+        Serial.println("[WiFi] SSID not found");
+        break;
+      case WL_CONNECT_FAILED:
+        Serial.print("[WiFi] Failed - WiFi not connected! Reason: ");
+        return;
+        break;
+      case WL_CONNECTION_LOST:
+        Serial.println("[WiFi] Connection was lost");
+        break;
+      case WL_SCAN_COMPLETED:
+        Serial.println("[WiFi] Scan is completed");
+        break;
+      case WL_DISCONNECTED:
+        Serial.println("[WiFi] WiFi is disconnected");
+        break;
+      case WL_CONNECTED:
+        Serial.println("[WiFi] WiFi is connected!");
+        Serial.print("[WiFi] IP address: ");
+        Serial.println(WiFi.localIP());
+        return;
+        break;
+      default:
+        Serial.print("[WiFi] WiFi Status: ");
+        Serial.println(WiFi.status());
+        break;
+    }
+    delay(tryDelay);
+        
+    if(numberOfTries <= 0){
+      Serial.print("[WiFi] Failed to connect to WiFi!");
+      // Use disconnect function to force stop trying to connect
+      WiFi.disconnect();
+      return;
+    } else {
+      numberOfTries--;
+    }
+  }
 }
 
 
@@ -127,166 +188,86 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
   Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
   Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
 
-  // Calculate the change in acceleration for each axis
-  float deltaX = abs(event.acceleration.x - prevXacc);
-  float deltaY = abs(event.acceleration.y - prevYacc);
-  float deltaZ = abs(event.acceleration.z - prevZacc);
+  // Record current accelerations in all directions
+  float currentXacc = event.acceleration.x;
+  float currentYacc = event.acceleration.y;
+  float currentZacc = event.acceleration.z;
 
-  if (deltaX > xThreshold && deltaY > yThreshold && deltaZ > zThreshold) {
-    if (!sleeveActive) {
+  // Calculate the change in acceleration for each axis
+  float deltaX = abs(currentXacc - prevXacc);
+  float deltaY = abs(currentYacc - prevYacc);
+  float deltaZ = abs(currentZacc - prevZacc);
+
+  // Update the previous acceleration values
+  prevXacc = currentXacc;
+  prevYacc = currentYacc;
+  prevZacc = currentZacc;
+
+  if (!sleeveActive) {
+    if (deltaX > xThreshold && deltaY > yThreshold && deltaZ > zThreshold) {
+      sleeveActive = true;  // Turn on active state
+      sleeveTimer = millis(); // Start timer
       for (int i = 0; i < LED_COUNT; i++) {
         strip.setPixelColor(i, 200, 200, 200); // White-ish color
+        strip.show();  // Turn on LEDs
+        delay(50);
       }
-      strip.show();  // Turn on LEDs
-      sleeveActive = true;
-      sleeveTimer = millis();
     }
-  } else if (millis() - sleeveTimer >= 3000 || !sleeveActive) {
+  } else if (millis() - sleeveTimer >= 3000) {
     for (int i = 0; i < LED_COUNT; i++) {
       strip.setPixelColor(i, 0, 0, 0); // No color
     }
     strip.show(); // Turn off LEDs
-    sleeveActive = false;
+    sleeveActive = false; // Switch to off state
   }
-  
-  // Update the previous acceleration values
-  prevXacc = event.acceleration.x;
-  prevYacc = event.acceleration.y;
-  prevZacc = event.acceleration.z;
 }
 
 
-// Test if LEDs glow on low light
+// Function that activates front and back LEDs during low light conditions
 void glowOnDark(void) {
   
+  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
+  // That way you can do whatever math and comparisons you want!
   uint32_t lum = TSL.getFullLuminosity();
   uint16_t ir, full;
   ir = lum >> 16;
   full = lum & 0xFFFF;
-  if (full - ir < 500) {
+
+  if (full - ir < 300) {
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
       backStrip.setPixelColor(i, 200, 200, 200);
     }
     frontStrip.show();
     backStrip.show();// Turn on LEDs
-    digitalWrite(RIGHT_VIBE_PIN, HIGH); // Turn on vibe motors
-    digitalWrite(LEFT_VIBE_PIN, HIGH); 
+    //digitalWrite(RIGHT_VIBE_PIN, HIGH); // Turn on vibe motors
+    //digitalWrite(LEFT_VIBE_PIN, HIGH); 
   }
-    else {
+  else {
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 0, 0, 0); // Off
       backStrip.setPixelColor(i, 0, 0, 0);
     }
     frontStrip.show();  // Turn off LEDs
     backStrip.show();
-    digitalWrite(RIGHT_VIBE_PIN, LOW); // Turn off vibe motors
-    digitalWrite(LEFT_VIBE_PIN, LOW); 
+    //digitalWrite(RIGHT_VIBE_PIN, LOW); // Turn off vibe motors
+    //digitalWrite(LEFT_VIBE_PIN, LOW); 
   }
 }
 
 void loop() {
-  // Process right sleeve and print its data
-  processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, prevRightYacc, prevRightZacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
-
-  // Process left sleeve and print its data
-  processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, prevLeftYacc, prevLeftZacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
-
-  // advancedRead();
-
-  // Perform regular actions every second
-  if (millis() - lastUpdateTime >= updateInterval) {
+  
+  // Ambient Light Activated LEDs
+  if (millis() - lastGlowUpdate >= glowUpdateInterval) {
     glowOnDark();
-    lastUpdateTime = millis();
+    lastGlowUpdate = millis();
+  }
+  // Turn Signal Activated LEDs
+  if (millis() - lastTurnUpdate >= turnUpdateInterval) {
+    // Process right sleeve and print its data
+    processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, prevRightYacc, prevRightZacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
+    // Process left sleeve and print its data
+    processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, prevLeftYacc, prevLeftZacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
+    lastTurnUpdate = millis();
   }
 }
-
-/**************************************************************************/
-/*
-    Show how to read IR and Full Spectrum at once and convert to lux
-*/
-/**************************************************************************/
-//void advancedRead(void)
-//{
-//  // More advanced data read example. Read 32 bits with top 16 bits IR, bottom 16 bits full spectrum
-//  // That way you can do whatever math and comparisons you want!
-//  uint32_t lum = tsl.getFullLuminosity();
-//  uint16_t ir, full;
-//  ir = lum >> 16;
-//  full = lum & 0xFFFF;
-//  Serial.print(F("[ ")); Serial.print(millis()); Serial.print(F(" ms ] "));
-//  Serial.print(F("IR: ")); Serial.print(ir);  Serial.print(F("  "));
-//  Serial.print(F("Full: ")); Serial.print(full); Serial.print(F("  "));
-//  Serial.print(F("Visible: ")); Serial.print(full - ir); Serial.print(F("  "));
-//  Serial.print(F("Lux: ")); Serial.println(tsl.calculateLux(full, ir), 6);
-//}
-//
-
-/**************************************************************************/
-/*
-    Displays some basic information on this sensor from the unified
-    sensor API sensor_t type (see Adafruit_Sensor for more information)
-*/
-/**************************************************************************/
-//void displaySensorDetails(void)
-//{
-//  sensor_t sensor;
-//  tsl.getSensor(&sensor);
-//  Serial.println(F("------------------------------------"));
-//  Serial.print  (F("Sensor:       ")); Serial.println(sensor.name);
-//  Serial.print  (F("Driver Ver:   ")); Serial.println(sensor.version);
-//  Serial.print  (F("Unique ID:    ")); Serial.println(sensor.sensor_id);
-//  Serial.print  (F("Max Value:    ")); Serial.print(sensor.max_value); Serial.println(F(" lux"));
-//  Serial.print  (F("Min Value:    ")); Serial.print(sensor.min_value); Serial.println(F(" lux"));
-//  Serial.print  (F("Resolution:   ")); Serial.print(sensor.resolution, 4); Serial.println(F(" lux"));  
-//  Serial.println(F("------------------------------------"));
-//  Serial.println(F(""));
-//  delay(500);
-//}
-
-/**************************************************************************/
-/*
-    Configures the gain and integration time for the TSL2591
-*/
-/**************************************************************************/
-//void configureSensor(void)
-//{
-//  // You can change the gain on the fly, to adapt to brighter/dimmer light situations
-//  //tsl.setGain(TSL2591_GAIN_LOW);    // 1x gain (bright light)
-//  tsl.setGain(TSL2591_GAIN_MED);      // 25x gain
-//  //tsl.setGain(TSL2591_GAIN_HIGH);   // 428x gain
-//  
-//  // Changing the integration time gives you a longer time over which to sense light
-//  // longer timelines are slower, but are good in very low light situtations!
-//  //tsl.setTiming(TSL2591_INTEGRATIONTIME_100MS);  // shortest integration time (bright light)
-//  // tsl.setTiming(TSL2591_INTEGRATIONTIME_200MS);
-//  tsl.setTiming(TSL2591_INTEGRATIONTIME_300MS);
-//  // tsl.setTiming(TSL2591_INTEGRATIONTIME_400MS);
-//  // tsl.setTiming(TSL2591_INTEGRATIONTIME_500MS);
-//  // tsl.setTiming(TSL2591_INTEGRATIONTIME_600MS);  // longest integration time (dim light)
-//
-//  /* Display the gain and integration time for reference sake */ 
-//  Serial.println(F("------------------------------------"));
-//  Serial.print  (F("Gain:         "));
-//  tsl2591Gain_t gain = tsl.getGain();
-//  switch(gain)
-//  {
-//    case TSL2591_GAIN_LOW:
-//      Serial.println(F("1x (Low)"));
-//      break;
-//    case TSL2591_GAIN_MED:
-//      Serial.println(F("25x (Medium)"));
-//      break;
-//    case TSL2591_GAIN_HIGH:
-//      Serial.println(F("428x (High)"));
-//      break;
-//    case TSL2591_GAIN_MAX:
-//      Serial.println(F("9876x (Max)"));
-//      break;
-//  }
-//  Serial.print  (F("Timing:       "));
-//  Serial.print((tsl.getTiming() + 1) * 100, DEC); 
-//  Serial.println(F(" ms"));
-//  Serial.println(F("------------------------------------"));
-//  Serial.println(F(""));
-//}
