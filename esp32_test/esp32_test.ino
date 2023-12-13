@@ -17,7 +17,7 @@
 #define RIGHT_VIBE_PIN 15 // 15
 #define LEFT_VIBE_PIN 27  // 27
 
-#define FILE_PATH "/ride_data.csv"
+#define FILE_PREFIX "/ride_data_"
 File dataFile;
 
 // WiFi network details
@@ -60,9 +60,12 @@ Adafruit_TSL2591 TSL = Adafruit_TSL2591(2591); // pass in a number for the senso
 unsigned long lastGlowUpdate = 0;
 const long glowUpdateInterval = 2000;  // Update interval of 2 seconds for ambient light
 bool glowActive = false;
+unsigned int visible = 0; // Visible light sensor reading
 
 unsigned long lastStoreUpdate = 0;
 const long storeInterval = 500; // How often data entry is recorded, upper bounded by turnUpdateInterval
+
+char fileName[64];
 
 void setup(void) {
   Serial.begin(115200);
@@ -72,10 +75,14 @@ void setup(void) {
     return;
   }
 
-  dataFile = SPIFFS.open(FILE_PATH, "w"); // Initializes write to file for ride_data.csv
+  int randval = random(1000, 9999);
+  sprintf(fileName, "%s%i.csv", FILE_PREFIX, randval);
+  Serial.print("New file name is: "); Serial.println(fileName);
+
+  dataFile = SPIFFS.open(fileName, "w"); // Initializes write to file for ride_data.csv
   if (dataFile) {
     Serial.println("Printing to file...");
-    dataFile.println("Time elapsed, Glow State, Right Sleeve State, Right X Acc, Right Y Acc, Right Z Acc, Left Sleeve State, Left X Acc, Left Y Acc, Left Z Acc");
+    dataFile.println("Time elapsed, Glow State, Visible Light, Right Sleeve State, Right X Acc, Right Y Acc, Right Z Acc, Left Sleeve State, Left X Acc, Left Y Acc, Left Z Acc");
     dataFile.close();
   }
 
@@ -196,11 +203,12 @@ void setup(void) {
 
 // Function to write states and sensor values to SPIFFS
 void writeToSPIFFS(float currentMillis) {
-  dataFile = SPIFFS.open(FILE_PATH, "a");
+  dataFile = SPIFFS.open(fileName, "a");
   if (dataFile){
     Serial.println("Writing to file");
     dataFile.print(currentMillis); dataFile.print(",");
     dataFile.print(glowActive); dataFile.print(",");
+    dataFile.print(visible); dataFile.print(",");
     dataFile.print(rightSleeveActive); dataFile.print(",");
     dataFile.print(prevRightXacc); dataFile.print(",");
     dataFile.print(prevRightYacc); dataFile.print(",");
@@ -269,8 +277,9 @@ void glowOnDark(void) {
   uint16_t ir, full;
   ir = lum >> 16;
   full = lum & 0xFFFF;
+  visible = full - ir;
 
-  if (full - ir < 300) {
+  if (visible < 300) {
     glowActive = true;
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
