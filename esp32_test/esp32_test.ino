@@ -5,7 +5,7 @@
 #include <Adafruit_MMA8451.h>
 #include "Adafruit_TSL2591.h"
 #include <WiFi.h>
-#include <SPIFFS.h>
+#include "SPIFFS.h"
 
 // Define pins for each strip of 10 neopixels
 #define LED_COUNT 10
@@ -66,11 +66,17 @@ const long storeInterval = 500; // How often data entry is recorded, upper bound
 
 void setup(void) {
   Serial.begin(115200);
-  Serial.println("SETUP");
-  dataFile = SPIFFS.open(FILE_PATH, "a"); // Initializes write to file for ride_data.csv
+
+  if (!SPIFFS.begin(true)) {
+    Serial.println("An Error has occurred while mounting SPIFFS");
+    return;
+  }
+
+  dataFile = SPIFFS.open(FILE_PATH, "w"); // Initializes write to file for ride_data.csv
   if (dataFile) {
     Serial.println("Printing to file...");
     dataFile.println("Time elapsed, Glow State, Right Sleeve State, Right X Acc, Right Y Acc, Right Z Acc, Left Sleeve State, Left X Acc, Left Y Acc, Left Z Acc");
+    dataFile.close();
   }
 
   Serial.println("Starting Adafruit MMA8451 test!");
@@ -190,7 +196,9 @@ void setup(void) {
 
 // Function to write states and sensor values to SPIFFS
 void writeToSPIFFS(float currentMillis) {
+  dataFile = SPIFFS.open(FILE_PATH, "a");
   if (dataFile){
+    Serial.println("Writing to file");
     dataFile.print(currentMillis); dataFile.print(",");
     dataFile.print(glowActive); dataFile.print(",");
     dataFile.print(rightSleeveActive); dataFile.print(",");
@@ -201,8 +209,8 @@ void writeToSPIFFS(float currentMillis) {
     dataFile.print(prevLeftXacc); dataFile.print(",");
     dataFile.print(prevLeftYacc); dataFile.print(",");
     dataFile.println(prevLeftZacc);
+    dataFile.close();
   }
-  
 }
 
 // Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
