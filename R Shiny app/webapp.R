@@ -17,7 +17,7 @@ ui <- fluidPage(
   
   sidebarLayout(
     sidebarPanel(
-      actionButton("ride1", "Ride 1"),
+      actionButton("ride1", "Ride 1"), # Buttons to select which ride to analyze
       actionButton("ride2", "Ride 2"),
       actionButton("ride3", "Ride 3"),
       actionButton("ride4", "Ride 4"),
@@ -43,6 +43,7 @@ server <- function(input, output) {
     data$Time.elapsed <- data$Time.elapsed / 60000  # Convert to minutes
     
     list(
+      # Creates graph for left acc
       leftPlot = ggplot(data, aes(x = Time.elapsed)) +
         geom_line(aes(y = Left.X.Acc, color = "X")) +
         geom_line(aes(y = Left.Y.Acc, color = "Y")) +
@@ -53,6 +54,7 @@ server <- function(input, output) {
         scale_fill_manual(values = c("Right Sleeve on" = "orange")) + 
         scale_color_manual(values = c("X" = "red", "Y" = "green", "Z" = "blue")),
       
+      # Creates graph for right acc
       rightPlot = ggplot(data, aes(x = Time.elapsed)) +
         geom_line(aes(y = Right.X.Acc, color = "X")) +
         geom_line(aes(y = Right.Y.Acc, color = "Y")) +
@@ -63,6 +65,7 @@ server <- function(input, output) {
         scale_fill_manual(values = c("Left Sleeve on" = "orange")) + 
         scale_color_manual(values = c("X" = "red", "Y" = "green", "Z" = "blue")),
       
+      # Creates graph for light readings
       ambientPlot = ggplot(data, aes(x = Time.elapsed)) +
         geom_line(aes(y = Visible.Light, color = "visible light")) +
         geom_ribbon(aes(ymin = ifelse(Glow.State == 1, -Inf, NA), ymax = ifelse(Glow.State == 1, Inf, NA), fill = "Glow on"),

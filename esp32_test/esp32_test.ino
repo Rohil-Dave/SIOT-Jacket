@@ -20,16 +20,16 @@
 #define FILE_PREFIX "/ride_data_"
 File dataFile;
 
-// WiFi network details
-const char* ssid     = "2 Childish";
-const char* password = "Gambino3005";
+// WiFi network details, replace with your own
+const char* ssid     = "ssid"; 
+const char* password = "password";
 
 // Initialize all LED strips
 Adafruit_NeoPixel rightSleeveStrip(LED_COUNT, RIGHT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel leftSleeveStrip(LED_COUNT, LEFT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel frontStrip(LED_COUNT, FRONT_LED_PIN, NEO_GRB + NEO_KHZ800);
 Adafruit_NeoPixel backStrip(LED_COUNT, BACK_LED_PIN, NEO_GRB + NEO_KHZ800);
-// Initialize both accelerometer
+// Initialize both accelerometers, one for each sleeve
 Adafruit_MMA8451 rightSleeveMMA = Adafruit_MMA8451();
 Adafruit_MMA8451 leftSleeveMMA = Adafruit_MMA8451();
 
@@ -39,7 +39,7 @@ unsigned long leftSleeveTimer = 0;
 bool rightSleeveActive = false;
 bool leftSleeveActive = false;
 
-unsigned long lastTurnUpdate = 0;
+unsigned long lastTurnUpdate = 0; // millis variable
 const long turnUpdateInterval = 500;  // Update interval of half second for raise of arm for turn signal
 
 // Adjust the threshold values for each axis
@@ -57,12 +57,12 @@ float prevLeftZacc = 0; // Variable to store previous Z acceleration of MMA on l
 // Initialize light sensor
 Adafruit_TSL2591 TSL = Adafruit_TSL2591(2591); // pass in a number for the sensor identifier (for your use later)
 
-unsigned long lastGlowUpdate = 0;
+unsigned long lastGlowUpdate = 0; // millis variable
 const long glowUpdateInterval = 2000;  // Update interval of 2 seconds for ambient light
-bool glowActive = false;
+bool glowActive = false; 
 unsigned int visible = 0; // Visible light sensor reading
 
-unsigned long lastStoreUpdate = 0;
+unsigned long lastStoreUpdate = 0; // millis variable
 const long storeInterval = 500; // How often data entry is recorded, upper bounded by turnUpdateInterval
 
 char fileName[64];
