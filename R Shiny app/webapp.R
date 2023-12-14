@@ -11,69 +11,108 @@
 library(shiny)
 library(ggplot2)
 
-# Define the UI as a selection box for the files as well as which variables to 
-# plot
+# Define the UI
 ui <- fluidPage(
   titlePanel("Smart Jacket Data Plotter"),
   
   sidebarLayout(
     sidebarPanel(
-      fileInput("file", "Choose CSV File", accept = c(".csv")),
-      checkboxGroupInput("checkGroup", "Select Sensor",choices = NULL),
-      #selectInput(inputId = "selectVal", label = "Sensor type", choices = c("Left", "Right", "Ambient")),
-      actionButton("plotBtn", "Plot")
+      actionButton("ride1", "Ride 1"),
+      actionButton("ride2", "Ride 2"),
+      actionButton("ride3", "Ride 3"),
+      actionButton("ride4", "Ride 4"),
+      actionButton("ride5", "Ride 5")
     ),
     
     mainPanel(
-      plotOutput("plot")
+      plotOutput("ambientPlot"),
+      plotOutput("leftPlot"),
+      plotOutput("rightPlot")
     )
   )
 )
 
 # Define server
-server <- function(input, output, session) {
-  # Reactive function to read CSV file and update checkbox options
-  data <- reactive({
-    req(input$file)
-    read.csv(input$file$datapath)
+server <- function(input, output) {
+  
+  # Function to read CSV and generate plots
+  renderRideData <- function(file) {
+    data <- read.csv(file)
+    
+    # Convert Time.elapsed from milliseconds to minutes
+    data$Time.elapsed <- data$Time.elapsed / 60000  # Convert to minutes
+    
+    list(
+      leftPlot = ggplot(data, aes(x = Time.elapsed)) +
+        geom_line(aes(y = Left.X.Acc, color = "X")) +
+        geom_line(aes(y = Left.Y.Acc, color = "Y")) +
+        geom_line(aes(y = Left.Z.Acc, color = "Z")) +
+        geom_ribbon(aes(ymin = ifelse(Left.Sleeve.State == 1, -Inf, NA), ymax = ifelse(Left.Sleeve.State == 1, Inf, NA), fill = "Right Sleeve on"),
+                    alpha = 0.5) +
+        labs(title = "Left Accelerometer", x = 'Time Elapsed (minutes)', y = 'Acceleration (m/s^2)') + theme_minimal() +
+        scale_fill_manual(values = c("Right Sleeve on" = "orange")) + 
+        scale_color_manual(values = c("X" = "red", "Y" = "green", "Z" = "blue")),
+      
+      rightPlot = ggplot(data, aes(x = Time.elapsed)) +
+        geom_line(aes(y = Right.X.Acc, color = "X")) +
+        geom_line(aes(y = Right.Y.Acc, color = "Y")) +
+        geom_line(aes(y = Right.Z.Acc, color = "Z")) +
+        geom_ribbon(aes(ymin = ifelse(Right.Sleeve.State == 1, -Inf, NA), ymax = ifelse(Right.Sleeve.State == 1, Inf, NA), fill = "Left Sleeve on"),
+                    alpha = 0.5) +
+        labs(title = "Right Accelerometer", x = 'Time Elapsed (minutes)', y = 'Acceleration (m/s^2)') + theme_minimal() +
+        scale_fill_manual(values = c("Left Sleeve on" = "orange")) + 
+        scale_color_manual(values = c("X" = "red", "Y" = "green", "Z" = "blue")),
+      
+      ambientPlot = ggplot(data, aes(x = Time.elapsed)) +
+        geom_line(aes(y = Visible.Light, color = "visible light")) +
+        geom_ribbon(aes(ymin = ifelse(Glow.State == 1, -Inf, NA), ymax = ifelse(Glow.State == 1, Inf, NA), fill = "Glow on"),
+                    alpha = 0.5) +
+        labs(title = "Ambient Light Sensor", x = 'Time Elapsed (minutes)', y = 'Visible Light reading') + theme_minimal() +
+        scale_fill_manual(values = c("Glow on" = "orange")) + 
+        scale_color_manual(values = c("visible light" = "hotpink"))
+    )
+  }
+  
+  # Reactive values for the plots
+  values <- reactiveValues(leftPlot = NULL, rightPlot = NULL, ambientPlot = NULL)
+  
+  # Observers for each ride button
+  observeEvent(input$ride1, {
+    plots <- renderRideData("ride_data_Daytime1.csv")
+    values$leftPlot <- plots$leftPlot
+    values$rightPlot <- plots$rightPlot
+    values$ambientPlot <- plots$ambientPlot
+  })
+  observeEvent(input$ride2, {
+    plots <- renderRideData("ride_data_Daytime2.csv")
+    values$leftPlot <- plots$leftPlot
+    values$rightPlot <- plots$rightPlot
+    values$ambientPlot <- plots$ambientPlot
+  })
+  observeEvent(input$ride3, {
+    plots <- renderRideData("ride_data_Daytime3.csv")
+    values$leftPlot <- plots$leftPlot
+    values$rightPlot <- plots$rightPlot
+    values$ambientPlot <- plots$ambientPlot
+  })
+  observeEvent(input$ride4, {
+    plots <- renderRideData("ride_data_Nighttime1.csv")
+    values$leftPlot <- plots$leftPlot
+    values$rightPlot <- plots$rightPlot
+    values$ambientPlot <- plots$ambientPlot
+  })
+  observeEvent(input$ride5, {
+    plots <- renderRideData("ride_data_Nighttime2.csv")
+    values$leftPlot <- plots$leftPlot
+    values$rightPlot <- plots$rightPlot
+    values$ambientPlot <- plots$ambientPlot
   })
   
-  observe({
-    updateCheckboxGroupInput(session, "checkGroup", choices = c("Left", "Right", "Ambient"),
-                             selected = "Ambient")
-  })
   
-  # Reactive function to generate plot
-  output$plot <- renderPlot({
-    req(input$file, input$plotBtn)
-    
-    if (input$checkGroup == "Left") {
-      ggplot(data(), aes_string(x = 'Time.elapsed')) +
-        geom_line(aes_string(y = 'Left.X.Acc'), color = 'red') +
-        geom_line(aes_string(y = 'Left.Y.Acc'), color='green') +
-        geom_line(aes_string(y = 'Left.Z.Acc'), color='blue') +
-        geom_ribbon(aes(ymin = ifelse(Left.Sleeve.State == 1, -Inf, NA), ymax = ifelse(Left.Sleeve.State == 1, Inf, NA)),
-                    fill = "lightblue", alpha = 0.5) +
-        labs(title = "Left Accelerometer", x = 'Time Elapsed in ms', y = 'XYZ data (RGB)') + theme_minimal()
-    } else {
-      if (input$checkGroup == "Right") {
-        ggplot(data(), aes_string(x = 'Time.elapsed')) +
-          geom_line(aes_string(y = 'Right.X.Acc'), color = 'red') +
-          geom_line(aes_string(y = 'Right.Y.Acc'), color='green') +
-          geom_line(aes_string(y = 'Right.Z.Acc'), color='blue') +
-          geom_ribbon(aes(ymin = ifelse(Right.Sleeve.State == 1, -Inf, NA), ymax = ifelse(Right.Sleeve.State == 1, Inf, NA)),
-                      fill = "lightblue", alpha = 0.5) +
-          labs(title = "Right Accelerometer", x = 'Time Elapsed in ms', y = 'XYZ data (RGB)') + theme_minimal()       
-      } else {
-        ggplot(data(), aes_string(x = 'Time.elapsed')) +
-          geom_line(aes_string(y = 'Visible.Light'), color = 'orange') +
-          geom_ribbon(aes(ymin = ifelse(Glow.State == 1, -Inf, NA), ymax = ifelse(Glow.State == 1, Inf, NA)),
-                      fill = "lightblue", alpha = 0.5) +
-          labs(title = "Ambient Light Sensor", x = 'Time Elapsed in ms', y = 'Luminosity (Full - IR)') + theme_minimal()
-      }
-    }
-    
-  })
+  # Render Plots
+  output$leftPlot <- renderPlot({ values$leftPlot })
+  output$rightPlot <- renderPlot({ values$rightPlot })
+  output$ambientPlot <- renderPlot({ values$ambientPlot })
 }
 
 # Run the app
