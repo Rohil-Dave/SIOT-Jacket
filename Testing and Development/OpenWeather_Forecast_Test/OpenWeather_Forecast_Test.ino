@@ -34,10 +34,10 @@
 #define TIME_OFFSET 1UL * 3600UL // UTC + 0 hour
 
 // Change to suit your WiFi router
-#define WIFI_SSID     "2 Childish"
-#define WIFI_PASSWORD "Gambino3005"
+#define WIFI_SSID     "ssid"
+#define WIFI_PASSWORD "password"
 // OpenWeather API Details, replace x's with your API key
-String api_key = "39b0cfc45bc91538e7133e051c7fd669"; // Obtain this from your OpenWeather account
+String api_key = "key"; // Obtain this from your OpenWeather account
 
 // Set both your longitude and latitude to at least 4 decimal places
 String latitude =  "51.5085"; // 90.0000 to -90.0000 negative for Southern hemisphere
