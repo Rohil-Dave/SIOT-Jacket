@@ -39,8 +39,8 @@
 #include <SPIFFS.h>
 #endif
 
-const char* ssid = "2 Childish";
-const char* password = "Gambino3005";
+const char* ssid = "ssid";
+const char* password = "password";
 const char* host = "esp32fs";
 WebServer server(80);
 //holds the current upload
