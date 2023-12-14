@@ -9,8 +9,8 @@
 */
 #include <WiFi.h>
 
-const char* ssid     = "2 Childish";
-const char* password = "Gambino3005";
+const char* ssid     = "ssid";
+const char* password = "password";
 
 int btnGPIO = 0;
 int btnState = false;
