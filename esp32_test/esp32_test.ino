@@ -85,7 +85,7 @@ void setup(void) {
     dataFile.println("Time elapsed, Glow State, Visible Light, Right Sleeve State, Right X Acc, Right Y Acc, Right Z Acc, Left Sleeve State, Left X Acc, Left Y Acc, Left Z Acc");
     dataFile.close();
   }
-
+  // Initialize accelerometers and print feedback on serial monitor
   Serial.println("Starting Adafruit MMA8451 test!");
   // Initialize Right Sleeve MMA8451
   if (! rightSleeveMMA.begin(0x1C)) { // Unique I2C address for the right sleeve accelerometer, 0x1C requires A pin to GND
@@ -149,11 +149,9 @@ void setup(void) {
   Serial.println(ssid);
 
   WiFi.begin(ssid, password);
-// Auto reconnect is set true as default
-// To set auto connect off, use the following function
-//    WiFi.setAutoReconnect(false);
+  // Auto reconnect is set true as default
 
-    // Will try for about 10 seconds (20x 500ms)
+  // Will try for about 10 seconds (20x 500ms)
   int tryDelay = 500;
   int numberOfTries = 20;
 
@@ -223,15 +221,10 @@ void writeToSPIFFS(float currentMillis) {
 
 // Function that checks respective change in acceleration to activate LEDs and vibe motor on right or left sleeve
 void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevXacc, float &prevYacc, float &prevZacc, const char* sleeveName, unsigned long &sleeveTimer, bool &sleeveActive) {
+  // Prepare to call MMA data
   mma.read();
   sensors_event_t event; 
   mma.getEvent(&event);
-
-  // Printing the accelerometer data for the specific sleeve
-  // Serial.print(sleeveName);
-  // Serial.print(" X:\t"); Serial.print(event.acceleration.x); Serial.print("\t");
-  // Serial.print("Y:\t"); Serial.print(event.acceleration.y); Serial.print("\t");
-  // Serial.print("Z:\t"); Serial.print(event.acceleration.z); Serial.println(" m/s^2");
 
   // Record current accelerations in all directions
   float currentXacc = event.acceleration.x;
@@ -267,7 +260,6 @@ void processSleeve(Adafruit_MMA8451 &mma, Adafruit_NeoPixel &strip, float &prevX
   }
 }
 
-
 // Function that activates front and back LEDs during low light conditions
 void glowOnDark(void) {
   
@@ -280,42 +272,38 @@ void glowOnDark(void) {
   visible = full - ir;
 
   if (visible < 300) {
-    glowActive = true;
+    glowActive = true;  // Active state
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 200, 200, 200); // White-ish color
       backStrip.setPixelColor(i, 200, 200, 200);
     }
     frontStrip.show();
     backStrip.show();// Turn on LEDs
-    //digitalWrite(RIGHT_VIBE_PIN, HIGH); // Turn on vibe motors
-    //digitalWrite(LEFT_VIBE_PIN, HIGH); 
   }
   else {
-    glowActive = false;
+    glowActive = false; // Switch state to off
     for (int i = 0; i < LED_COUNT; i++) {
       frontStrip.setPixelColor(i, 0, 0, 0); // Off
       backStrip.setPixelColor(i, 0, 0, 0);
     }
     frontStrip.show();  // Turn off LEDs
     backStrip.show();
-    //digitalWrite(RIGHT_VIBE_PIN, LOW); // Turn off vibe motors
-    //digitalWrite(LEFT_VIBE_PIN, LOW); 
   }
 }
 
 void loop() {
-  // Print the data
+  // Record data into csv locally every half second
   float currentMillis = millis();
   if (currentMillis - lastStoreUpdate >= storeInterval) {
     writeToSPIFFS(currentMillis);
     lastStoreUpdate = currentMillis;
   }
-  // Ambient Light Activated LEDs
+  // Ambient Light Activated LEDs, take a reading and check against threshold every 2 seconds
   if (millis() - lastGlowUpdate >= glowUpdateInterval) {
     glowOnDark();
     lastGlowUpdate = millis();
   }
-  // Turn Signal Activated LEDs
+  // Turn Signal Activated LEDs, take a reading check against threshold every half second
   if (millis() - lastTurnUpdate >= turnUpdateInterval) {
     processSleeve(rightSleeveMMA, rightSleeveStrip, prevRightXacc, prevRightYacc, prevRightZacc, "Right Sleeve", rightSleeveTimer, rightSleeveActive);
     processSleeve(leftSleeveMMA, leftSleeveStrip, prevLeftXacc, prevLeftYacc, prevLeftZacc, "Left Sleeve", leftSleeveTimer, leftSleeveActive);
